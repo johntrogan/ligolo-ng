@@ -206,6 +206,8 @@ func HandleConn(conn net.Conn) {
 			if l, ok := lis.(*net.UDPConn); ok {
 				l.Close()
 			}
+			// Remove closed listener from map to avoid leaks
+			delete(listenerMap, closeRequest.ListenerID)
 		} else {
 			err = errors.New("invalid listener id")
 		}
@@ -343,10 +345,16 @@ func HandleConn(conn net.Conn) {
 		if err := socketEncDec.Payload.(*protocol.ListenerSocketConnectionReady).Err; err != false {
 			logrus.Debug("Socket relay session failed: error from proxy")
 			netConn.Close()
+			delete(listenerConntrack, sockRequest.SockID)
 			return
 		}
 
-		relay.StartRelay(netConn, conn)
+		// Start bidirectional relay; when it returns, close and clean up
+		if err := relay.StartRelay(netConn, conn); err != nil {
+			logrus.Error(err)
+		}
+		netConn.Close()
+		delete(listenerConntrack, sockRequest.SockID)
 
 	case *protocol.AgentKillRequestPacket:
 		os.Exit(0)

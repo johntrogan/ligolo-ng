@@ -129,6 +129,7 @@ func NewAgent(session *yamux.Session) (*LigoloAgent, error) {
 	if err != nil {
 		return nil, fmt.Errorf("could not open yamux connection session: %v", err)
 	}
+	defer yamuxConnectionSession.Close()
 
 	infoRequest := protocol.InfoRequestPacket{}
 

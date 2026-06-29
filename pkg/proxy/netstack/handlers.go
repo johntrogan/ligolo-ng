@@ -50,6 +50,7 @@ func handleICMP(nstack *stack.Stack, localConn TunConn, yamuxConn *yamux.Session
 			logrus.Error(err)
 			return
 		}
+		defer yamuxConnectionSession.Close()
 		logrus.Debugf("Checking if %s is alive...\n", iph.DestinationAddress().String())
 		icmpPacket := protocol.HostPingRequestPacket{Address: iph.DestinationAddress().String()}
 
@@ -177,7 +178,9 @@ func HandlePacket(nstack *stack.Stack, localConn TunConn, yamuxConn *yamux.Sessi
 
 		}()
 	} else {
+		// Connection not established: terminate local conn and close request stream.
 		localConn.Terminate(reply.Reset)
+		_ = yamuxConnectionSession.Close()
 	}
 
 }

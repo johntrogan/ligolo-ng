@@ -51,15 +51,18 @@ func NewListener(sess *yamux.Session, addr string, network string, to string) (L
 	// Request to open a new port on the agent
 	listenerPacket := protocol.ListenerRequestPacket{Address: addr, Network: network}
 	if err := ligoloProtocol.Encode(listenerPacket); err != nil {
+		conn.Close()
 		return LigoloListener{}, err
 	}
 
 	// Get response from agent
 	if err := ligoloProtocol.Decode(); err != nil {
+		conn.Close()
 		return LigoloListener{}, err
 	}
 	response := ligoloProtocol.Payload.(*protocol.ListenerResponsePacket)
 	if err := response.Err; err {
+		conn.Close()
 		return LigoloListener{}, errors.New(response.ErrString)
 	}
 	return LigoloListener{ID: response.ListenerID, sess: sess, Conn: conn, addr: addr, network: network, to: to}, nil
@@ -71,6 +74,10 @@ func (l *LigoloListener) ResetMultiplexer(sess *yamux.Session) error {
 	conn, err := sess.Open()
 	if err != nil {
 		return err
+	}
+	// Close previous listener connection (if any) before replacing
+	if l.Conn != nil {
+		_ = l.Conn.Close()
 	}
 	l.Conn = conn
 	return nil
@@ -98,6 +105,7 @@ func (l *LigoloListener) Stop() error {
 	if err != nil {
 		return err
 	}
+	defer yamuxConnectionSession.Close()
 
 	ligoloProtocol := protocol.NewEncoderDecoder(yamuxConnectionSession)
 
