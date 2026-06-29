@@ -279,7 +279,7 @@ func HandleConn(conn net.Conn) {
 				logrus.Error(err)
 			}
 			go func() {
-				err := relay.StartRelay(conn, udplistener)
+				err := relay.StartUDPListenerRelay(conn, udplistener.UDPConn)
 				if err != nil {
 					logrus.Error(err)
 				}
