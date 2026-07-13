@@ -55,6 +55,7 @@ func main() {
 	var configFile = flag.String("config", "", "the config file to use")
 	var daemonMode = flag.Bool("daemon", false, "run as daemon mode (no CLI)")
 	var apiListenAddr = flag.String("api-laddr", "", "API server listening address (default: 127.0.0.1:8080)")
+	var maxInflight = flag.Int("max-inflight", 4096, "maximum number of in-flight TCP connection requests per tunnel")
 	var cpuprofile = flag.String("cpuprofile", "", "write cpu profile to `file`")
 	var memprofile = flag.String("memprofile", "", "write memory profile to `file`")
 
@@ -66,6 +67,10 @@ func main() {
 		flag.PrintDefaults()
 	}
 	flag.Parse()
+	setFlags := make(map[string]struct{})
+	flag.Visit(func(f *flag.Flag) {
+		setFlags[f.Name] = struct{}{}
+	})
 
 	if *cpuprofile != "" {
 		f, err := os.Create(*cpuprofile)
@@ -83,6 +88,14 @@ func main() {
 
 	if *apiListenAddr != "" {
 		config.Config.Set("web.listen", *apiListenAddr)
+	}
+
+	configuredMaxInflight := config.Config.GetInt("proxy.maxinflight")
+	if _, ok := setFlags["max-inflight"]; ok {
+		configuredMaxInflight = *maxInflight
+	}
+	if err := app.SetMaxInflight(configuredMaxInflight); err != nil {
+		logrus.Fatal(err)
 	}
 
 	if *versionFlag {
