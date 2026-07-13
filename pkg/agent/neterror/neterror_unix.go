@@ -31,3 +31,10 @@ func HostResponded(err error) bool {
 	}
 	return false
 }
+
+// ConnectionRefused reports whether err was caused by a remote endpoint
+// rejecting a connection. Connected UDP sockets use this error to surface an
+// ICMP Port Unreachable received from the network.
+func ConnectionRefused(err error) bool {
+	return errors.Is(err, syscall.ECONNREFUSED)
+}

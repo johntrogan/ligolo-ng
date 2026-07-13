@@ -145,9 +145,9 @@ func (s *NetStack) new(stackSettings StackSettings) (*stack.Stack, error) {
 
 	s.stack = ns
 
-	// Gvisor Hack: Disable ICMP handling.
-	ns.SetICMPLimit(0)
-	ns.SetICMPBurst(0)
+	// Incoming ICMP handling is disabled in the gVisor fork and handled by
+	// icmpResponder below. Keep the default ICMP rate limiter enabled so the
+	// stack can still emit errors such as UDP Port Unreachable.
 
 	// Forward TCP connections
 	tcpHandler := tcp.NewForwarder(ns, 0, stackSettings.MaxInflight, func(request *tcp.ForwarderRequest) {

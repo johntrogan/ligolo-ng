@@ -182,12 +182,14 @@ type ConnectRequestPacket struct {
 	Transport uint8
 	Address   string
 	Port      uint16
+	FramedUDP bool
 }
 
 // ConnectResponsePacket is the response to the ConnectRequestPacket and indicate if the connection can be established, and if a RST packet need to be sent
 type ConnectResponsePacket struct {
 	Established bool
 	Reset       bool
+	FramedUDP   bool
 }
 
 // HostPingRequestPacket is used when a ICMP packet is received on the proxy server. It is used to request a ping request to the agent

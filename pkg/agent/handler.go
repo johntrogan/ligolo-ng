@@ -145,13 +145,23 @@ func HandleConn(conn net.Conn) {
 			connectPacket.Established = false
 		} else {
 			connectPacket.Established = true
+			connectPacket.FramedUDP = connRequest.Transport == protocol.TransportUDP && connRequest.FramedUDP
 		}
 		if err := encoder.Encode(connectPacket); err != nil {
 			logrus.Error(err)
 			return
 		}
 		if connectPacket.Established {
-			relay.StartRelay(targetConn, conn)
+			if connectPacket.FramedUDP {
+				relay.StartFramedPacketRelay(conn, targetConn, func(err error) relay.PacketRelayError {
+					if neterror.ConnectionRefused(err) {
+						return relay.PacketRelayPortUnreachable
+					}
+					return relay.PacketRelayNoError
+				}, nil)
+			} else {
+				relay.StartRelay(targetConn, conn)
+			}
 		}
 	case *protocol.HostPingRequestPacket:
 		pingRequest := e.Payload.(*protocol.HostPingRequestPacket)
