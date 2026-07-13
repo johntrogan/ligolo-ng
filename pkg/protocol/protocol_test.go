@@ -49,6 +49,47 @@ func TestEncodeDecode(t *testing.T) {
 
 }
 
+func TestConnectPacketsPreserveFramedUDPNegotiation(t *testing.T) {
+	tests := []struct {
+		name   string
+		packet interface{}
+		framed func(interface{}) bool
+	}{
+		{
+			name:   "request",
+			packet: ConnectRequestPacket{Transport: TransportUDP, FramedUDP: true},
+			framed: func(payload interface{}) bool {
+				return payload.(*ConnectRequestPacket).FramedUDP
+			},
+		},
+		{
+			name:   "response",
+			packet: ConnectResponsePacket{Established: true, FramedUDP: true},
+			framed: func(payload interface{}) bool {
+				return payload.(*ConnectResponsePacket).FramedUDP
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			var buffer bytes.Buffer
+			encoder := NewEncoder(&buffer)
+			if err := encoder.Encode(tt.packet); err != nil {
+				t.Fatalf("Encode: %v", err)
+			}
+
+			decoder := NewDecoder(&buffer)
+			if err := decoder.Decode(); err != nil {
+				t.Fatalf("Decode: %v", err)
+			}
+			if !tt.framed(decoder.Payload) {
+				t.Fatal("FramedUDP negotiation flag was lost")
+			}
+		})
+	}
+}
+
 func BenchmarkEncodeDecode(b *testing.B) {
 	for i := 0; i < b.N; i++ {
 		var buffer bytes.Buffer

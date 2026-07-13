@@ -18,10 +18,59 @@ package relay
 
 import (
 	"bytes"
+	"errors"
 	"net"
+	"sync"
+	"syscall"
 	"testing"
 	"time"
 )
+
+type testAddr string
+
+func (a testAddr) Network() string { return string(a) }
+func (a testAddr) String() string  { return string(a) }
+
+type refusingPacketConn struct {
+	written   chan struct{}
+	closed    chan struct{}
+	closeOnce sync.Once
+	writeOnce sync.Once
+	payload   []byte
+}
+
+func newRefusingPacketConn() *refusingPacketConn {
+	return &refusingPacketConn{
+		written: make(chan struct{}),
+		closed:  make(chan struct{}),
+	}
+}
+
+func (c *refusingPacketConn) Read([]byte) (int, error) {
+	select {
+	case <-c.written:
+		return 0, syscall.ECONNREFUSED
+	case <-c.closed:
+		return 0, net.ErrClosed
+	}
+}
+
+func (c *refusingPacketConn) Write(payload []byte) (int, error) {
+	c.payload = append([]byte(nil), payload...)
+	c.writeOnce.Do(func() { close(c.written) })
+	return len(payload), nil
+}
+
+func (c *refusingPacketConn) Close() error {
+	c.closeOnce.Do(func() { close(c.closed) })
+	return nil
+}
+
+func (c *refusingPacketConn) LocalAddr() net.Addr              { return testAddr("local") }
+func (c *refusingPacketConn) RemoteAddr() net.Addr             { return testAddr("remote") }
+func (c *refusingPacketConn) SetDeadline(time.Time) error      { return nil }
+func (c *refusingPacketConn) SetReadDeadline(time.Time) error  { return nil }
+func (c *refusingPacketConn) SetWriteDeadline(time.Time) error { return nil }
 
 // TestStartUDPListenerRelayReturnTraffic reproduces
 // https://github.com/nicocha30/ligolo-ng/issues/147: a reverse UDP listener
@@ -85,5 +134,67 @@ func TestStartUDPListenerRelayReturnTraffic(t *testing.T) {
 	}
 	if got := buf[:n]; !bytes.Equal(got, []byte("pong")) {
 		t.Fatalf("client received %q, want %q", got, "pong")
+	}
+}
+
+func TestFramedPacketRelayReportsPortUnreachableWithOffendingDatagram(t *testing.T) {
+	proxyTunnel, agentTunnel := net.Pipe()
+	applicationConn, proxyPacketConn := net.Pipe()
+	agentPacketConn := newRefusingPacketConn()
+	defer applicationConn.Close()
+
+	remoteError := make(chan struct {
+		relayError PacketRelayError
+		payload    []byte
+	}, 1)
+	proxyDone := make(chan error, 1)
+	agentDone := make(chan error, 1)
+
+	go func() {
+		proxyDone <- StartFramedPacketRelay(proxyTunnel, proxyPacketConn, nil, func(relayError PacketRelayError, payload []byte) {
+			remoteError <- struct {
+				relayError PacketRelayError
+				payload    []byte
+			}{relayError: relayError, payload: payload}
+		})
+	}()
+	go func() {
+		agentDone <- StartFramedPacketRelay(agentTunnel, agentPacketConn, func(err error) PacketRelayError {
+			if errors.Is(err, syscall.ECONNREFUSED) {
+				return PacketRelayPortUnreachable
+			}
+			return PacketRelayNoError
+		}, nil)
+	}()
+
+	wantPayload := []byte("closed-port-probe")
+	if _, err := applicationConn.Write(wantPayload); err != nil {
+		t.Fatalf("write UDP datagram: %v", err)
+	}
+
+	select {
+	case got := <-remoteError:
+		if got.relayError != PacketRelayPortUnreachable {
+			t.Fatalf("relay error = %d, want %d", got.relayError, PacketRelayPortUnreachable)
+		}
+		if !bytes.Equal(got.payload, wantPayload) {
+			t.Fatalf("offending datagram = %q, want %q", got.payload, wantPayload)
+		}
+		if !bytes.Equal(agentPacketConn.payload, wantPayload) {
+			t.Fatalf("agent received datagram = %q, want %q", agentPacketConn.payload, wantPayload)
+		}
+	case <-time.After(2 * time.Second):
+		t.Fatal("timed out waiting for UDP Port Unreachable")
+	}
+
+	select {
+	case <-proxyDone:
+	case <-time.After(2 * time.Second):
+		t.Fatal("proxy relay did not stop after remote error")
+	}
+	select {
+	case <-agentDone:
+	case <-time.After(2 * time.Second):
+		t.Fatal("agent relay did not stop after connection refused")
 	}
 }

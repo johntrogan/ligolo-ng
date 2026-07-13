@@ -28,3 +28,9 @@ func HostResponded(err error) bool {
 	}
 	return false
 }
+
+// ConnectionRefused reports errors used by Windows connected UDP sockets when
+// the remote endpoint returns an ICMP Port Unreachable.
+func ConnectionRefused(err error) bool {
+	return errors.Is(err, syscall.WSAECONNRESET)
+}
