@@ -28,6 +28,8 @@ import (
 	"github.com/spf13/viper"
 	"golang.org/x/crypto/argon2"
 	"os"
+	"path/filepath"
+	"runtime"
 	"strings"
 )
 
@@ -36,6 +38,12 @@ var (
 	ErrIncompatibleVersion = errors.New("incompatible version of argon2")
 )
 var Config = viper.New()
+
+const (
+	DefaultConfigFile    = "ligolo-ng.yaml"
+	DefaultSelfCertCache = "ligolo-selfcerts"
+	DefaultHistoryFile   = "ligolo-ng.history"
+)
 
 func generateRandomBytes(length int) ([]byte, error) {
 	b := make([]byte, length)
@@ -169,23 +177,42 @@ func ask(question string) bool {
 
 func InitConfig(configFile string) {
 	var firstStart bool
+	explicitConfigFile := configFile != ""
 	if configFile == "" {
-		configFile = "ligolo-ng.yaml"
+		configFile = DefaultConfigFile
+	}
+
+	Config.SetConfigType("yaml")
+	if explicitConfigFile {
+		// SetConfigName treats a path as a name and makes Viper search for it
+		// below every configured directory. SetConfigFile is required for an
+		// explicit path, especially when it is absolute.
+		Config.SetConfigFile(configFile)
 	} else {
+		Config.SetConfigName(strings.TrimSuffix(filepath.Base(configFile), filepath.Ext(configFile)))
+		Config.AddConfigPath(".")
+		if homeDir, err := os.UserHomeDir(); err == nil {
+			Config.AddConfigPath(filepath.Join(homeDir, ".ligolo-proxy"))
+		}
+		if runtime.GOOS != "windows" {
+			Config.AddConfigPath("/etc/ligolo-proxy")
+		}
+	}
+
+	if explicitConfigFile {
 		if _, err := os.Stat(configFile); errors.Is(err, os.ErrNotExist) {
 			logrus.Fatal("config file does not exist")
 		}
 	}
-	Config.SetConfigName(configFile)
-	Config.SetConfigType("yaml")
-	Config.AddConfigPath(".")
-	Config.AddConfigPath("$HOME/.ligolo-proxy")
-	Config.AddConfigPath("/etc/ligolo-proxy")
 
 	logrus.Infof("Loading configuration file %s", configFile)
 	if err := Config.ReadInConfig(); err != nil {
 		if _, ok := err.(viper.ConfigFileNotFoundError); ok {
 			logrus.Warn("daemon configuration file not found. Creating a new one...")
+			// For the default configuration, create the file in the current
+			// directory and make it the explicit Viper config file so that
+			// WriteConfig writes to the same location.
+			Config.SetConfigFile(configFile)
 			f, err := os.Create(configFile)
 			firstStart = true
 			if err != nil {
@@ -229,9 +256,12 @@ func InitConfig(configFile string) {
 	Config.SetDefault("web.tls.autocert", false)
 	Config.SetDefault("web.tls.certfile", "")
 	Config.SetDefault("web.tls.keyfile", "")
+	Config.SetDefault("web.tls.selfcertcache", DefaultSelfCertCache)
 	Config.SetDefault("web.tls.alloweddomains", []string{})
 	Config.SetDefault("web.tls.selfcertdomain", "ligolo")
 	Config.SetDefault("proxy.maxinflight", 4096)
+	Config.SetDefault("proxy.selfcertcache", DefaultSelfCertCache)
+	Config.SetDefault("proxy.historyfile", DefaultHistoryFile)
 	secureConfigPasswords()
 
 	secret, err := generateRandomBytes(32)

@@ -21,7 +21,6 @@ An advanced, yet simple, tunneling tool that uses TUN interfaces.
 > - 💀 Agent kill, to remotely terminate an agent
 >
 > Please try it out! 
-> [Release: Ligolo-ng 0.8](https://github.com/nicocha30/ligolo-ng/releases/tag/v0.8)
 > 
 > ![Ligolo Web](doc/webui.png)
 

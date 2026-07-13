@@ -26,6 +26,7 @@ import (
 	"github.com/nicocha30/ligolo-ng/pkg/tlsutils"
 	"github.com/nicocha30/ligolo-ng/web"
 	"github.com/sirupsen/logrus"
+	"golang.org/x/crypto/acme/autocert"
 	"io"
 	"net/http"
 	"os"
@@ -447,7 +448,7 @@ func StartLigoloApi() {
 			EnableAutocert:  config.Config.GetBool("web.tls.autocert"),
 			DomainWhitelist: config.Config.GetStringSlice("web.tls.alloweddomains"),
 			EnableSelfcert:  config.Config.GetBool("web.tls.selfcert"),
-			SelfCertCache:   "ligolo-selfcerts",
+			SelfCertCache:   autocert.DirCache(config.Config.GetString("web.tls.selfcertcache")),
 			SelfcertDomain:  config.Config.GetString("web.tls.selfcertdomain"),
 			Certfile:        config.Config.GetString("web.tls.certfile"),
 			Keyfile:         config.Config.GetString("web.tls.keyfile"),
