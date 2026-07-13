@@ -16,7 +16,7 @@ GOFILESNOTEST=`go list -buildvcs=false ./... | grep -v test`
 $(shell mkdir -p ${BASEDIR})
 
 # goreleaser build --config .goreleaser.yml --rm-dist --skip-validate
-all: linux windows
+all: linux linux-arm64 windows windows-arm64
 	@chmod +x dist/*
 
 mac: lint
@@ -27,9 +27,17 @@ linux: lint
 	@env CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -trimpath ${LDFLAGS} ${GCFLAGS} ${ASMFLAGS} -o ${BASEDIR}/ligolo-ng-proxy-linux_amd64 cmd/proxy/main.go
 	@env CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -trimpath ${LDFLAGS} ${GCFLAGS} ${ASMFLAGS} -o ${BASEDIR}/ligolo-ng-agent-linux_amd64 cmd/agent/main.go
 
+linux-arm64: lint
+	@env CGO_ENABLED=0 GOOS=linux GOARCH=arm64 go build -trimpath ${LDFLAGS} ${GCFLAGS} ${ASMFLAGS} -o ${BASEDIR}/ligolo-ng-proxy-linux_arm64 cmd/proxy/main.go
+	@env CGO_ENABLED=0 GOOS=linux GOARCH=arm64 go build -trimpath ${LDFLAGS} ${GCFLAGS} ${ASMFLAGS} -o ${BASEDIR}/ligolo-ng-agent-linux_arm64 cmd/agent/main.go
+
 windows: lint
 	@env CGO_ENABLED=0 GOOS=windows GOARCH=amd64 go build -trimpath ${LDFLAGS} ${GCFLAGS} ${ASMFLAGS} -o ${BASEDIR}/ligolo-ng-proxy-windows_amd64.exe cmd/proxy/main.go
 	@env CGO_ENABLED=0 GOOS=windows GOARCH=amd64 go build -trimpath ${LDFLAGS} ${GCFLAGS} ${ASMFLAGS} -o ${BASEDIR}/ligolo-ng-agent-windows_amd64.exe cmd/agent/main.go
+
+windows-arm64: lint
+	@env CGO_ENABLED=0 GOOS=windows GOARCH=arm64 go build -trimpath ${LDFLAGS} ${GCFLAGS} ${ASMFLAGS} -o ${BASEDIR}/ligolo-ng-proxy-windows_arm64.exe cmd/proxy/main.go
+	@env CGO_ENABLED=0 GOOS=windows GOARCH=arm64 go build -trimpath ${LDFLAGS} ${GCFLAGS} ${ASMFLAGS} -o ${BASEDIR}/ligolo-ng-agent-windows_arm64.exe cmd/agent/main.go
 
 tidy:
 	@go mod tidy
@@ -62,4 +70,4 @@ terminal_agent:
 	go run cmd/agent/main.go -connect localhost:11601 -ignore-cert
 
 
-.PHONY: all linux windows tidy update dep lint security release clean terminal
+.PHONY: all linux linux-arm64 windows windows-arm64 tidy update dep lint security release clean terminal
