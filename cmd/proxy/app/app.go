@@ -25,14 +25,15 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
-	"github.com/nicocha30/ligolo-ng/cmd/proxy/config"
-	"github.com/nicocha30/ligolo-ng/pkg/proxy/netinfo"
 	"net"
 	"runtime"
 	"strconv"
 	"strings"
 	"sync"
 	"time"
+
+	"github.com/nicocha30/ligolo-ng/cmd/proxy/config"
+	"github.com/nicocha30/ligolo-ng/pkg/proxy/netinfo"
 
 	"github.com/AlecAivazis/survey/v2"
 	"github.com/desertbit/grumble"
@@ -48,6 +49,7 @@ import (
 var AgentList map[int]*controller.LigoloAgent
 var AgentListMutex sync.Mutex
 var ProxyController *controller.Controller
+var maxInflight = 4096
 
 // CurrentAgentID points to the selected agent in the UI (when running session)
 var CurrentAgentID int
@@ -60,6 +62,14 @@ var (
 	ErrAlreadyRunning = errors.New("already running")
 	ErrNotRunning     = errors.New("no tunnel started")
 )
+
+func SetMaxInflight(value int) error {
+	if value <= 0 {
+		return fmt.Errorf("max-inflight must be greater than 0, got %d", value)
+	}
+	maxInflight = value
+	return nil
+}
 
 func genRandomUUID() string {
 	b := make([]byte, 8)
@@ -287,7 +297,7 @@ func StartTunnel(agent *controller.LigoloAgent, tunName string) error {
 	logrus.Infof("Starting tunnel to %s (%s)", agent.Name, agent.SessionID)
 	ligoloStack, err := proxy.NewLigoloTunnel(netstack.StackSettings{
 		TunName:     tunName,
-		MaxInflight: 4096,
+		MaxInflight: maxInflight,
 	})
 	if err != nil {
 		return err

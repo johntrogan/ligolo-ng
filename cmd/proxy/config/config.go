@@ -231,6 +231,7 @@ func InitConfig(configFile string) {
 	Config.SetDefault("web.tls.keyfile", "")
 	Config.SetDefault("web.tls.alloweddomains", []string{})
 	Config.SetDefault("web.tls.selfcertdomain", "ligolo")
+	Config.SetDefault("proxy.maxinflight", 4096)
 	secureConfigPasswords()
 
 	secret, err := generateRandomBytes(32)
