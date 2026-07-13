@@ -5,7 +5,6 @@
 An advanced, yet simple, tunneling tool that uses TUN interfaces.
 
 [![GPLv3](https://img.shields.io/badge/License-GPLv3-brightgreen.svg)](https://www.gnu.org/licenses/gpl-3.0)
-[![Go Report](https://goreportcard.com/badge/github.com/nicocha30/ligolo-ng)](https://goreportcard.com/report/github.com/nicocha30/ligolo-ng)
 [![GitHub Sponsors](https://img.shields.io/github/sponsors/nicocha30)](https://github.com/sponsors/nicocha30)
 ![GitHub Downloads (all assets, all releases)](https://img.shields.io/github/downloads/nicocha30/ligolo-ng/total)
 
@@ -21,7 +20,6 @@ An advanced, yet simple, tunneling tool that uses TUN interfaces.
 > - 💀 Agent kill, to remotely terminate an agent
 >
 > Please try it out! 
-> [Release: Ligolo-ng 0.8](https://github.com/nicocha30/ligolo-ng/releases/tag/v0.8)
 > 
 > ![Ligolo Web](doc/webui.png)
 

@@ -32,6 +32,7 @@ import (
 	"github.com/nicocha30/ligolo-ng/cmd/proxy/app"
 	"github.com/nicocha30/ligolo-ng/pkg/controller"
 	"github.com/sirupsen/logrus"
+	"golang.org/x/crypto/acme/autocert"
 )
 
 var (
@@ -53,6 +54,8 @@ func main() {
 	var versionFlag = flag.Bool("version", false, "show the current version")
 	var hideBanner = flag.Bool("nobanner", false, "don't show banner on startup")
 	var configFile = flag.String("config", "", "the config file to use")
+	var selfcertCache = flag.String("selfcert-cache", "", "directory used to cache self-signed certificates")
+	var historyFile = flag.String("history", "", "readline history file")
 	var daemonMode = flag.Bool("daemon", false, "run as daemon mode (no CLI)")
 	var apiListenAddr = flag.String("api-laddr", "", "API server listening address (default: 127.0.0.1:8080)")
 	var maxInflight = flag.Int("max-inflight", 4096, "maximum number of in-flight TCP connection requests per tunnel")
@@ -85,6 +88,16 @@ func main() {
 	}
 
 	config.InitConfig(*configFile)
+
+	configuredSelfcertCache := config.Config.GetString("proxy.selfcertcache")
+	if _, ok := setFlags["selfcert-cache"]; ok {
+		configuredSelfcertCache = *selfcertCache
+	}
+	configuredHistoryFile := config.Config.GetString("proxy.historyfile")
+	if _, ok := setFlags["history"]; ok {
+		configuredHistoryFile = *historyFile
+	}
+	app.App.Config().HistoryFile = configuredHistoryFile
 
 	if *apiListenAddr != "" {
 		config.Config.Set("web.listen", *apiListenAddr)
@@ -136,7 +149,7 @@ func main() {
 	proxyController := controller.New(controller.ControllerConfig{
 		Address: *listenInterface,
 		CertManagerConfig: &tlsutils.CertManagerConfig{
-			SelfCertCache:   "ligolo-selfcerts",
+			SelfCertCache:   autocert.DirCache(configuredSelfcertCache),
 			Certfile:        *certFile,
 			Keyfile:         *keyFile,
 			DomainWhitelist: allowDomains,
